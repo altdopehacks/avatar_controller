@@ -35,10 +35,11 @@ class App {
   async loadPoseFromFile(file) {
     try {
       const poseData = await this.poseLoader.loadFromFile(file);
+      console.log('Loaded pose data:', poseData.frames.length, 'frames with fps:', poseData.fps);
       this.processPoseData(poseData);
     } catch (error) {
       console.error('Error loading pose data from file:', error);
-      this.uiController.updateStatus('Error loading pose data');
+      this.uiController.updateStatus('Error loading pose data: ' + error.message);
     }
   }
   
@@ -69,39 +70,45 @@ class App {
     this.lastFrameTime = null; // Reset frame timer
     
     try {
-      this.rigFrames = this.frames.map(frame => {
+      this.rigFrames = this.frames.map((frame, frameIdx) => {
         if (!frame.poseLandmarks || !Array.isArray(frame.poseLandmarks)) {
+          console.error('Invalid poseLandmarks format in frame', frameIdx);
           throw new Error('Invalid poseLandmarks format');
         }
         
-        const validLandmarks3D = frame.poseLandmarks.map((landmark, index) => {
-          if (!landmark) {
+        try {
+          const validLandmarks3D = frame.poseLandmarks.map((landmark, index) => {
+            if (!landmark) {
+              return {
+                id: index,
+                x: 0,
+                y: 0,
+                z: 0,
+                visibility: 0
+              };
+            }
+            
             return {
-              id: index,
-              x: 0,
-              y: 0,
-              z: 0,
-              visibility: 0
+              id: landmark.id !== undefined ? landmark.id : index,
+              x: landmark.x !== undefined ? landmark.x : 0,
+              y: landmark.y !== undefined ? landmark.y : 0,
+              z: landmark.z !== undefined ? landmark.z : 0,
+              visibility: landmark.visibility !== undefined ? landmark.visibility : 1.0
             };
-          }
+          });
           
-          return {
-            id: landmark.id !== undefined ? landmark.id : index,
-            x: landmark.x !== undefined ? landmark.x : 0,
-            y: landmark.y !== undefined ? landmark.y : 0,
-            z: landmark.z !== undefined ? landmark.z : 0,
-            visibility: landmark.visibility !== undefined ? landmark.visibility : 1.0
-          };
-        });
-        
-        const validLandmarks2D = validLandmarks3D.map(landmark => ({
-          id: landmark.id,
-          x: landmark.x,
-          y: landmark.y,
-          visibility: landmark.visibility
-        }));
-        
-        return Kalidokit.Pose.solve(validLandmarks3D, validLandmarks2D);
+          const validLandmarks2D = validLandmarks3D.map(landmark => ({
+            id: landmark.id,
+            x: landmark.x,
+            y: landmark.y,
+            visibility: landmark.visibility
+          }));
+          
+          return Kalidokit.Pose.solve(validLandmarks3D, validLandmarks2D);
+        } catch (error) {
+          console.error('Error processing frame', frameIdx, error);
+          throw new Error(`Error processing frame ${frameIdx}: ${error.message}`);
+        }
       });
       
       const duration = this.frames.length / this.fps;

@@ -42,6 +42,11 @@ export class PoseLoader {
   }
   
   validatePoseData(data) {
+    if (Array.isArray(data)) {
+      console.log('Detected alternative JSON format (array of arrays)');
+      return this.convertArrayFormat(data);
+    }
+    
     if (!data || typeof data !== 'object') {
       throw new Error('Invalid data format');
     }
@@ -60,5 +65,37 @@ export class PoseLoader {
     }
     
     return data;
+  }
+  
+  convertArrayFormat(arrayData) {
+    console.log('Converting array format to standard format...');
+    
+    const validFrames = arrayData.filter(frame => Array.isArray(frame) && frame.length > 0);
+    
+    if (validFrames.length === 0) {
+      throw new Error('No valid frames found in the data');
+    }
+    
+    console.log(`Found ${validFrames.length} valid frames out of ${arrayData.length} total frames`);
+    
+    const frames = validFrames.map((landmarks, frameIndex) => {
+      return {
+        timestamp: frameIndex / 30, // Assuming 30 fps
+        poseLandmarks: landmarks.map(landmark => {
+          return {
+            id: landmark.landmark_id !== undefined ? landmark.landmark_id : 0,
+            x: landmark.x !== undefined ? landmark.x : 0,
+            y: landmark.y !== undefined ? landmark.y : 0,
+            z: landmark.z !== undefined ? landmark.z : 0,
+            visibility: landmark.visibility !== undefined ? landmark.visibility : 1.0
+          };
+        })
+      };
+    });
+    
+    return {
+      fps: 30, // Using default 30 fps since it's not provided in the array format
+      frames: frames
+    };
   }
 }

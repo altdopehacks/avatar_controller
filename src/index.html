@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Avatar Controller</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+    .canvas-container {
+      flex: 1;
+      position: relative;
+    }
+    #avatar-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .controls-container {
+      width: 300px;
+      padding: 20px;
+      background-color: #f5f5f5;
+      overflow-y: auto;
+    }
+    .control-group {
+      margin-bottom: 20px;
+    }
+    .control-group h3 {
+      margin-top: 0;
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+    .seek-container {
+      margin-top: 10px;
+    }
+    input[type="range"] {
+      width: 100%;
+    }
+    .file-input {
+      margin-bottom: 10px;
+    }
+    .url-input {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    .info-display {
+      margin-top: 20px;
+      font-size: 14px;
+    }
+    .info-item {
+      margin-bottom: 5px;
+    }
+    .video-container {
+      margin-top: 20px;
+    }
+    #original-video {
+      width: 100%;
+      max-height: 200px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="canvas-container">
+      <canvas id="avatar-canvas"></canvas>
+    </div>
+    <div class="controls-container">
+      <div class="control-group">
+        <h3>Avatar Controller</h3>
+        <div class="file-input">
+          <h4>Load Pose JSON</h4>
+          <input type="file" id="pose-file" accept=".json,.jsonc">
+        </div>
+        <div class="file-input">
+          <h4>Load JSON from URL</h4>
+          <input type="text" id="pose-url" class="url-input" placeholder="Enter JSON URL">
+          <button id="load-url">Load</button>
+        </div>
+        <div class="file-input">
+          <h4>Load VRM Model</h4>
+          <input type="file" id="vrm-file" accept=".vrm">
+        </div>
+      </div>
+      
+      <div class="control-group">
+        <h4>Playback Controls</h4>
+        <div class="button-group">
+          <button id="play-button">Play</button>
+          <button id="pause-button">Pause</button>
+          <button id="stop-button">Stop</button>
+        </div>
+        <div class="seek-container">
+          <input type="range" id="seek-bar" min="0" max="100" value="0">
+          <div class="frame-display">
+            <span id="current-frame">0</span> / <span id="total-frames">0</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="info-display">
+        <div class="info-item">FPS: <span id="fps-display">0</span></div>
+        <div class="info-item">Duration: <span id="duration-display">0</span> sec</div>
+        <div class="info-item">Status: <span id="status-display">No data loaded</span></div>
+      </div>
+      
+      <div class="video-container">
+        <h4>Original Video (Optional)</h4>
+        <input type="file" id="video-file" accept="video/*">
+        <video id="original-video" controls></video>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

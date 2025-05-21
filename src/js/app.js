@@ -15,6 +15,7 @@ class App {
     this.currentFrameIdx = 0;
     this.rigFrames = [];
     this.fps = 30;
+    this.lastFrameTime = null;
     
     this.init();
   }
@@ -23,6 +24,10 @@ class App {
     await this.avatarController.initScene(document.getElementById('avatar-canvas'));
     
     this.uiController.initEventListeners();
+    
+    window.debugAnimation = (enable = true) => {
+      this.debugAnimation = enable;
+    };
     
     this.animate();
   }
@@ -49,13 +54,19 @@ class App {
   
   processPoseData(poseData) {
     if (!poseData || !poseData.frames || !poseData.fps) {
+      console.error('Invalid pose data format:', poseData);
       this.uiController.updateStatus('Invalid pose data format');
       return;
     }
     
     this.fps = poseData.fps;
+    console.log('Loaded pose data with fps:', this.fps);
+    
     this.frames = poseData.frames;
+    console.log('Loaded frames count:', this.frames.length);
+    
     this.currentFrameIdx = 0;
+    this.lastFrameTime = null; // Reset frame timer
     
     try {
       this.rigFrames = this.frames.map(frame => {
@@ -125,18 +136,22 @@ class App {
       return;
     }
     
+    console.log('Starting playback with', this.rigFrames.length, 'frames at', this.fps, 'fps');
     this.isPlaying = true;
+    this.lastFrameTime = performance.now();
     this.uiController.updatePlaybackButtons(true);
   }
   
   pause() {
     this.isPlaying = false;
+    this.lastFrameTime = null;
     this.uiController.updatePlaybackButtons(false);
   }
   
   stop() {
     this.isPlaying = false;
     this.currentFrameIdx = 0;
+    this.lastFrameTime = null;
     this.uiController.updatePlaybackButtons(false);
     this.uiController.updateCurrentFrame(0);
     this.syncVideoTime(0);
@@ -165,7 +180,17 @@ class App {
   animate() {
     requestAnimationFrame(this.animate.bind(this));
     
-    if (this.isPlaying && this.rigFrames.length > 0) {
+    const now = performance.now();
+    if (!this.lastFrameTime) {
+      this.lastFrameTime = now;
+    }
+    
+    const elapsed = now - this.lastFrameTime;
+    const fpsInterval = 1000 / this.fps; // Convert fps to ms interval
+    
+    if (this.isPlaying && this.rigFrames.length > 0 && elapsed > fpsInterval) {
+      this.lastFrameTime = now - (elapsed % fpsInterval);
+      
       const rig = this.rigFrames[this.currentFrameIdx];
       
       if (rig) {
@@ -177,6 +202,10 @@ class App {
       this.syncVideoTime(this.currentFrameIdx / this.fps);
       
       this.currentFrameIdx = (this.currentFrameIdx + 1) % this.rigFrames.length;
+      
+      if (this.debugAnimation) {
+        console.log('Frame update:', this.currentFrameIdx, 'of', this.rigFrames.length);
+      }
     }
     
     this.avatarController.render();

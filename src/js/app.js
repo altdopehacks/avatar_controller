@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { VRM, VRMUtils } from '@pixiv/three-vrm';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import * as Kalidokit from 'kalidokit';
 import { PoseLoader } from './poseLoader.js';
 import { AvatarController } from './avatarController.js';
@@ -57,20 +57,56 @@ class App {
     this.frames = poseData.frames;
     this.currentFrameIdx = 0;
     
-    this.rigFrames = this.frames.map(frame => 
-      Kalidokit.Pose.solve(frame.poseLandmarks, { runtime: "tfjs" })
-    );
-    
-    const duration = this.frames.length / this.fps;
-    
-    this.uiController.updateUI({
-      fps: this.fps,
-      totalFrames: this.frames.length,
-      duration: duration.toFixed(2),
-      status: 'Pose data loaded'
-    });
-    
-    this.uiController.updateSeekBar(0, this.frames.length);
+    try {
+      this.rigFrames = this.frames.map(frame => {
+        if (!frame.poseLandmarks || !Array.isArray(frame.poseLandmarks)) {
+          throw new Error('Invalid poseLandmarks format');
+        }
+        
+        const validLandmarks3D = frame.poseLandmarks.map((landmark, index) => {
+          if (!landmark) {
+            return {
+              id: index,
+              x: 0,
+              y: 0,
+              z: 0,
+              visibility: 0
+            };
+          }
+          
+          return {
+            id: landmark.id !== undefined ? landmark.id : index,
+            x: landmark.x !== undefined ? landmark.x : 0,
+            y: landmark.y !== undefined ? landmark.y : 0,
+            z: landmark.z !== undefined ? landmark.z : 0,
+            visibility: landmark.visibility !== undefined ? landmark.visibility : 1.0
+          };
+        });
+        
+        const validLandmarks2D = validLandmarks3D.map(landmark => ({
+          id: landmark.id,
+          x: landmark.x,
+          y: landmark.y,
+          visibility: landmark.visibility
+        }));
+        
+        return Kalidokit.Pose.solve(validLandmarks3D, validLandmarks2D);
+      });
+      
+      const duration = this.frames.length / this.fps;
+      
+      this.uiController.updateUI({
+        fps: this.fps,
+        totalFrames: this.frames.length,
+        duration: duration.toFixed(2),
+        status: 'Pose data loaded'
+      });
+      
+      this.uiController.updateSeekBar(0, this.frames.length);
+    } catch (error) {
+      console.error('Error processing pose data:', error);
+      this.uiController.updateStatus('Error processing pose data');
+    }
   }
   
   async loadVRMModel(file) {

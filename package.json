@@ -7,12 +7,19 @@
     "build": "vite build",
     "preview": "vite preview"
   },
-  "keywords": ["vrm", "three.js", "kalidokit", "avatar", "animation"],
+  "keywords": [
+    "vrm",
+    "three.js",
+    "kalidokit",
+    "avatar",
+    "animation"
+  ],
   "author": "",
   "license": "ISC",
   "description": "VRM Avatar Controller using pose JSON data",
   "dependencies": {
     "@pixiv/three-vrm": "^3.4.0",
+    "@pixiv/three-vrm-materials-v0compat": "^3.4.0",
     "kalidokit": "^1.1.5",
     "three": "^0.176.0"
   },

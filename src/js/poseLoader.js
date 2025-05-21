@@ -7,10 +7,16 @@ export class PoseLoader {
       
       reader.onload = (event) => {
         try {
-          const jsonData = JSON.parse(event.target.result);
+          let jsonData;
+          const text = event.target.result;
+          
+          const bomStripped = text.replace(/^\uFEFF/, '');
+          
+          jsonData = JSON.parse(bomStripped);
           resolve(this.validatePoseData(jsonData));
         } catch (error) {
-          reject(new Error('Invalid JSON format'));
+          console.error('JSON parse error:', error);
+          reject(new Error(`Invalid JSON format: ${error.message}`));
         }
       };
       

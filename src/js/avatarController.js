@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { VRM, VRMUtils } from '@pixiv/three-vrm';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+import { VRMMaterialsV0CompatPlugin } from '@pixiv/three-vrm-materials-v0compat';
 
 export class AvatarController {
   constructor() {
@@ -71,26 +72,40 @@ export class AvatarController {
       const url = URL.createObjectURL(file);
       const loader = new GLTFLoader();
       
+      loader.register((parser) => {
+        return new VRMLoaderPlugin(parser);
+      });
+      
+      loader.register((parser) => {
+        return new VRMMaterialsV0CompatPlugin(parser);
+      });
+      
       loader.load(
         url,
         (gltf) => {
-          VRM.from(gltf).then((vrm) => {
-            if (this.vrm) {
-              this.scene.remove(this.vrm.scene);
-              VRMUtils.deepDispose(this.vrm.scene);
-            }
-            
-            this.vrm = vrm;
-            this.scene.add(this.vrm.scene);
-            
-            this.vrm.scene.rotation.y = Math.PI;
-            
-            this.camera.position.set(0, 1.3, 1.5);
-            this.controls.target.set(0, 1, 0);
-            this.controls.update();
-            
-            resolve(vrm);
-          });
+          const vrm = gltf.userData.vrm;
+          
+          if (!vrm) {
+            console.error('VRM not found in loaded model');
+            reject(new Error('VRM not found in loaded model'));
+            return;
+          }
+          
+          if (this.vrm) {
+            this.scene.remove(this.vrm.scene);
+            VRMUtils.deepDispose(this.vrm.scene);
+          }
+          
+          this.vrm = vrm;
+          this.scene.add(this.vrm.scene);
+          
+          this.vrm.scene.rotation.y = Math.PI;
+          
+          this.camera.position.set(0, 1.3, 1.5);
+          this.controls.target.set(0, 1, 0);
+          this.controls.update();
+          
+          resolve(vrm);
         },
         (progress) => {
           console.log('Loading VRM model...', (progress.loaded / progress.total) * 100, '%');

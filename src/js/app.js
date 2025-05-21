@@ -1,0 +1,152 @@
+import * as THREE from 'three';
+import { VRM, VRMUtils } from '@pixiv/three-vrm';
+import * as Kalidokit from 'kalidokit';
+import { PoseLoader } from './poseLoader.js';
+import { AvatarController } from './avatarController.js';
+import { UIController } from './ui.js';
+
+class App {
+  constructor() {
+    this.poseLoader = new PoseLoader();
+    this.avatarController = new AvatarController();
+    this.uiController = new UIController(this);
+    
+    this.isPlaying = false;
+    this.currentFrameIdx = 0;
+    this.rigFrames = [];
+    this.fps = 30;
+    
+    this.init();
+  }
+  
+  async init() {
+    await this.avatarController.initScene(document.getElementById('avatar-canvas'));
+    
+    this.uiController.initEventListeners();
+    
+    this.animate();
+  }
+  
+  async loadPoseFromFile(file) {
+    try {
+      const poseData = await this.poseLoader.loadFromFile(file);
+      this.processPoseData(poseData);
+    } catch (error) {
+      console.error('Error loading pose data from file:', error);
+      this.uiController.updateStatus('Error loading pose data');
+    }
+  }
+  
+  async loadPoseFromURL(url) {
+    try {
+      const poseData = await this.poseLoader.loadFromURL(url);
+      this.processPoseData(poseData);
+    } catch (error) {
+      console.error('Error loading pose data from URL:', error);
+      this.uiController.updateStatus('Error loading pose data from URL');
+    }
+  }
+  
+  processPoseData(poseData) {
+    if (!poseData || !poseData.frames || !poseData.fps) {
+      this.uiController.updateStatus('Invalid pose data format');
+      return;
+    }
+    
+    this.fps = poseData.fps;
+    this.frames = poseData.frames;
+    this.currentFrameIdx = 0;
+    
+    this.rigFrames = this.frames.map(frame => 
+      Kalidokit.Pose.solve(frame.poseLandmarks, { runtime: "tfjs" })
+    );
+    
+    const duration = this.frames.length / this.fps;
+    
+    this.uiController.updateUI({
+      fps: this.fps,
+      totalFrames: this.frames.length,
+      duration: duration.toFixed(2),
+      status: 'Pose data loaded'
+    });
+    
+    this.uiController.updateSeekBar(0, this.frames.length);
+  }
+  
+  async loadVRMModel(file) {
+    try {
+      await this.avatarController.loadVRM(file);
+      this.uiController.updateStatus('VRM model loaded');
+    } catch (error) {
+      console.error('Error loading VRM model:', error);
+      this.uiController.updateStatus('Error loading VRM model');
+    }
+  }
+  
+  play() {
+    if (this.rigFrames.length === 0) {
+      this.uiController.updateStatus('No pose data loaded');
+      return;
+    }
+    
+    this.isPlaying = true;
+    this.uiController.updatePlaybackButtons(true);
+  }
+  
+  pause() {
+    this.isPlaying = false;
+    this.uiController.updatePlaybackButtons(false);
+  }
+  
+  stop() {
+    this.isPlaying = false;
+    this.currentFrameIdx = 0;
+    this.uiController.updatePlaybackButtons(false);
+    this.uiController.updateCurrentFrame(0);
+    this.syncVideoTime(0);
+  }
+  
+  seekToFrame(frameIdx) {
+    if (this.rigFrames.length === 0) return;
+    
+    this.currentFrameIdx = Math.min(Math.max(0, frameIdx), this.rigFrames.length - 1);
+    this.uiController.updateCurrentFrame(this.currentFrameIdx);
+    
+    if (this.rigFrames[this.currentFrameIdx]) {
+      this.avatarController.updatePose(this.rigFrames[this.currentFrameIdx]);
+    }
+    
+    this.syncVideoTime(this.currentFrameIdx / this.fps);
+  }
+  
+  syncVideoTime(time) {
+    const video = document.getElementById('original-video');
+    if (video && video.readyState >= 2) {
+      video.currentTime = time;
+    }
+  }
+  
+  animate() {
+    requestAnimationFrame(this.animate.bind(this));
+    
+    if (this.isPlaying && this.rigFrames.length > 0) {
+      const rig = this.rigFrames[this.currentFrameIdx];
+      
+      if (rig) {
+        this.avatarController.updatePose(rig);
+      }
+      
+      this.uiController.updateCurrentFrame(this.currentFrameIdx);
+      
+      this.syncVideoTime(this.currentFrameIdx / this.fps);
+      
+      this.currentFrameIdx = (this.currentFrameIdx + 1) % this.rigFrames.length;
+    }
+    
+    this.avatarController.render();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  window.app = new App();
+});
